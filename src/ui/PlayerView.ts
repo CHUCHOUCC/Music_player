@@ -1,5 +1,6 @@
 import { Playlist } from "../model/Playlist";
 import { Song } from "../model/Song";
+import type { PlaylistLibrary } from "../storage/PlaylistLibrary";
 
 type Where = "start" | "end" | "position";
 
@@ -8,11 +9,17 @@ export class PlayerView {
   private readonly audio = this.find<HTMLAudioElement>("audio");
   private readonly list = this.find<HTMLOListElement>("list");
   private draggedId: string | null = null;
+  private playing = false;
 
-  constructor(private readonly playlist: Playlist) {
+  constructor(
+    private readonly playlist: Playlist,
+    private readonly library: PlaylistLibrary,
+  ) {
     this.bindControls();
     this.bindAddForms();
+    this.bindSaveForm();
     this.render();
+    void this.refreshSaved();
   }
 
   private find<T extends HTMLElement>(id: string): T {
@@ -33,6 +40,9 @@ export class PlayerView {
       this.render();
     });
     this.audio.addEventListener("ended", () => this.playSong(this.playlist.next()));
+    // The vinyl spins only while the sound is really playing.
+    this.audio.addEventListener("play", () => this.setPlaying(true));
+    this.audio.addEventListener("pause", () => this.setPlaying(false));
     this.audio.addEventListener("error", () => {
       if (this.audio.getAttribute("src")) this.showMessage("This song could not be played.");
     });
@@ -49,7 +59,7 @@ export class PlayerView {
       const input = event.target as HTMLInputElement;
       for (const file of Array.from(input.files ?? [])) {
         const title = file.name.replace(/\.[^.]+$/, "");
-        this.addSong(new Song(crypto.randomUUID(), title, URL.createObjectURL(file), "file"));
+        this.addSong(new Song(crypto.randomUUID(), title, URL.createObjectURL(file), "file", file));
       }
       input.value = "";
     });
@@ -105,8 +115,100 @@ export class PlayerView {
     this.audio.load();
   }
 
-  private showMessage(text: string): void {
-    this.find("message").textContent = text;
+  private showMessage(text: string, ok = false): void {
+    const message = this.find("message");
+    message.textContent = text;
+    message.classList.toggle("ok", ok);
+  }
+
+  private setPlaying(value: boolean): void {
+    this.playing = value;
+    this.render();
+  }
+
+  private bindSaveForm(): void {
+    this.find<HTMLFormElement>("save-form").addEventListener("submit", (event) => {
+      event.preventDefault();
+      const input = this.find<HTMLInputElement>("playlist-name");
+      this.library
+        .save(input.value, this.playlist)
+        .then(() => {
+          this.showMessage(`Playlist "${input.value.trim()}" saved.`, true);
+          input.value = "";
+          return this.refreshSaved();
+        })
+        .catch((error: unknown) => this.showMessage(this.describe(error, "The playlist could not be saved.")));
+    });
+  }
+
+  private async refreshSaved(): Promise<void> {
+    const container = this.find<HTMLUListElement>("saved-list");
+    try {
+      const saved = await this.library.list();
+      this.find("saved-empty").hidden = saved.length > 0;
+      container.replaceChildren(
+        ...saved.map((item) => {
+          const row = document.createElement("li");
+          row.className = "saved-item";
+
+          const name = document.createElement("span");
+          name.className = "name";
+          name.textContent = item.name;
+
+          const meta = document.createElement("span");
+          meta.className = "meta";
+          meta.textContent = `${item.songs.length} songs`;
+
+          const load = document.createElement("button");
+          load.type = "button";
+          load.textContent = "Load";
+          load.addEventListener("click", () => void this.loadSaved(item.name));
+
+          const remove = document.createElement("button");
+          remove.type = "button";
+          remove.className = "delete";
+          remove.textContent = "Delete";
+          remove.addEventListener("click", () => {
+            this.library.delete(item.name).then(() => this.refreshSaved(), () => this.showMessage("Could not delete it."));
+          });
+
+          row.append(name, meta, load, remove);
+          return row;
+        }),
+      );
+    } catch {
+      this.find("saved-empty").textContent = "Saving is not available in this browser.";
+      this.find("saved-empty").hidden = false;
+    }
+  }
+
+  private async loadSaved(name: string): Promise<void> {
+    try {
+      this.stopAudio();
+      const loaded = await this.library.loadInto(name, this.playlist);
+      this.showMessage(loaded ? `Playlist "${name}" loaded.` : "That playlist no longer exists.", loaded);
+    } catch {
+      this.showMessage("The playlist could not be loaded.");
+    }
+    this.render();
+  }
+
+  private describe(error: unknown, fallback: string): string {
+    return error instanceof Error && error.message !== "" ? error.message : fallback;
+  }
+
+  /** Same title always gets the same colour, so every song has its own disc label. */
+  private colorFor(title: string): string {
+    let hash = 0;
+    for (const letter of title) hash = (hash * 31 + letter.charCodeAt(0)) % 360;
+    return `hsl(${hash} 65% 50%)`;
+  }
+
+  private updateVinyl(current: Song | null): void {
+    const vinyl = this.find("vinyl");
+    vinyl.classList.toggle("spinning", this.playing && current !== null);
+    vinyl.style.setProperty("--label", current === null ? "#6c8cff" : this.colorFor(current.title));
+    this.find("vinyl-initial").textContent = current === null ? "\u266B" : current.title.charAt(0).toUpperCase();
   }
 
   private render(): void {
@@ -115,15 +217,20 @@ export class PlayerView {
     this.find("count").textContent = songs.length > 0 ? `(${songs.length})` : "";
     this.find("empty").hidden = songs.length > 0;
     this.find("now-playing").textContent = current === null ? "Nothing playing" : `Now playing: ${current.title}`;
+    this.updateVinyl(current);
     this.list.replaceChildren(...songs.map((song, index) => this.createItem(song, index, song === current)));
   }
 
   private createItem(song: Song, index: number, isCurrent: boolean): HTMLLIElement {
     const item = document.createElement("li");
-    item.className = "item" + (isCurrent ? " current" : "");
+    item.className = "item" + (isCurrent ? " current" : "") + (isCurrent && this.playing ? " playing" : "");
     item.draggable = true;
     item.tabIndex = 0;
     item.dataset.id = song.id;
+
+    const disc = document.createElement("span");
+    disc.className = "mini-disc";
+    disc.style.setProperty("--label", this.colorFor(song.title));
 
     const number = document.createElement("span");
     number.className = "number";
@@ -150,7 +257,7 @@ export class PlayerView {
       else this.render();
     });
 
-    item.append(number, title, origin, remove);
+    item.append(number, disc, title, origin, remove);
     item.addEventListener("click", () => this.playSong(this.playlist.play(song.id)));
     item.addEventListener("keydown", (event) => {
       if (event.key === "Enter") this.playSong(this.playlist.play(song.id));

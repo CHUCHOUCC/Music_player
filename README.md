@@ -7,6 +7,8 @@ A web music player built with TypeScript and Vite. The playlist is a hand-writte
 - Remove a song.
 - Next and previous song. Optional "repeat list".
 - Drag and drop to reorder songs.
+- Vinyl disc that spins while a song is playing (it stops when paused). Every song gets its own label colour.
+- Save playlists with a name, load them later, delete them. Local audio files are saved too.
 - Songs from any computer: pick audio files from the device you are using, or add any audio URL from the web.
 
 ## Design (OOP)
@@ -16,6 +18,9 @@ A web music player built with TypeScript and Vite. The playlist is a hand-writte
 | `DoublyLinkedList<T>` | The data structure: insert, remove, move, find. No arrays inside. |
 | `Song` | One song (title, playable source, origin). |
 | `Playlist` | Songs in a list plus a reference to the song that is playing. |
+| `PlaylistStorage` | Interface: where playlists are kept (save, list, load, delete). |
+| `BrowserPlaylistStorage` | Implements it with IndexedDB, in the browser. |
+| `PlaylistLibrary` | Saves the current playlist and rebuilds saved ones. Does not know where they live. |
 | `PlayerView` | Connects the page with the `Playlist`. No list logic. |
 
 ## The reordering bug this design avoids
@@ -35,5 +40,6 @@ npm run build    # production build in dist/
 Import the GitHub repository in Vercel. Framework preset: **Vite**. Build command `npm run build`, output directory `dist`.
 
 ## Notes
-- Files chosen from a computer are played from the browser memory of that tab. They are not uploaded to any server, so they disappear when the page is reloaded.
+- Files chosen from a computer are never uploaded to a server. Until a playlist is saved they disappear on reload.
+- Saved playlists live in this browser (IndexedDB), so they are not visible from another computer or browser. Because the app depends only on the `PlaylistStorage` interface, a server-based storage (accounts and a database) can be added later without changing the rest.
 - Songs added by URL need a server that allows the browser to play them (most direct `.mp3` links do).

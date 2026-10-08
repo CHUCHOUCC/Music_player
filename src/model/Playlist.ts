@@ -86,6 +86,12 @@ export class Playlist {
     return this.currentSong;
   }
 
+  /** Replaces the whole playlist (used when a saved playlist is loaded). */
+  replaceWith(songs: Song[]): void {
+    this.clear();
+    for (const song of songs) this.songs.insertLast(song);
+  }
+
   clear(): void {
     this.songs.clear();
     this.current = null;
