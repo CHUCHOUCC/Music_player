@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Music Player</title>
+  </head>
+  <body>
+    <main class="app">
+      <h1>Music Player</h1>
+
+      <section class="panel" aria-label="Now playing">
+        <p id="now-playing" class="now-playing">Nothing playing</p>
+        <audio id="audio" controls></audio>
+        <div class="controls">
+          <button id="previous" type="button">&#9198; Previous</button>
+          <button id="next" type="button">Next &#9197;</button>
+          <label class="inline"><input id="repeat" type="checkbox" /> Repeat list</label>
+        </div>
+        <p id="message" class="message" role="status"></p>
+      </section>
+
+      <section class="panel" aria-label="Add songs">
+        <h2>Add songs</h2>
+        <div class="row">
+          <label for="where">Where</label>
+          <select id="where">
+            <option value="end">At the end</option>
+            <option value="start">At the start</option>
+            <option value="position">At position</option>
+          </select>
+          <input id="position" type="number" min="1" value="1" disabled aria-label="Position" />
+        </div>
+        <div class="row">
+          <label for="file">From this computer</label>
+          <input id="file" type="file" accept="audio/*" multiple />
+        </div>
+        <form id="url-form" class="row">
+          <label for="url">From the web</label>
+          <input id="url" type="url" placeholder="https://example.com/song.mp3" required />
+          <input id="title" type="text" placeholder="Title (optional)" />
+          <button type="submit">Add</button>
+        </form>
+      </section>
+
+      <section class="panel" aria-label="Playlist">
+        <div class="list-header">
+          <h2>Playlist <span id="count" class="count"></span></h2>
+          <button id="clear" type="button" class="danger">Clear</button>
+        </div>
+        <p class="hint">Click a song to play it. Drag songs to reorder them.</p>
+        <ol id="list" class="list"></ol>
+        <p id="empty" class="empty">The playlist is empty.</p>
+      </section>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
