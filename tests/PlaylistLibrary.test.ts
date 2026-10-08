@@ -11,6 +11,7 @@ function sample(): Playlist {
   playlist.addLast(new Song("1", "Local song", "blob:old", "file", file));
   playlist.addLast(new Song("2", "Web song", "https://example.com/a.mp3", "url"));
   playlist.addFirst(new Song("3", "First", "https://example.com/b.mp3", "url"));
+  playlist.addLast(new Song("4", "Clip", "https://youtu.be/dQw4w9WgXcQ", "youtube"));
   return playlist;
 }
 
@@ -27,7 +28,7 @@ describe("PlaylistLibrary with browser storage", () => {
     await lib.save("Road trip", sample());
     const loaded = new Playlist();
     expect(await lib.loadInto("Road trip", loaded)).toBe(true);
-    expect(loaded.list().map((song) => song.title)).toEqual(["First", "Local song", "Web song"]);
+    expect(loaded.list().map((song) => song.title)).toEqual(["First", "Local song", "Web song", "Clip"]);
   });
 
   it("keeps the audio file of local songs and the address of web songs", async () => {
@@ -35,12 +36,14 @@ describe("PlaylistLibrary with browser storage", () => {
     await lib.save("Mixed", sample());
     const loaded = new Playlist();
     await lib.loadInto("Mixed", loaded);
-    const [first, local, web] = loaded.list();
+    const [first, local, web, clip] = loaded.list();
     expect(first.source).toBe("https://example.com/b.mp3");
     expect(local.origin).toBe("file");
     expect(local.source).toBe("blob:new");
     expect(local.file?.size).toBe("audio-bytes".length);
     expect(web.source).toBe("https://example.com/a.mp3");
+    expect(clip.origin).toBe("youtube");
+    expect(clip.source).toBe("https://youtu.be/dQw4w9WgXcQ");
   });
 
   it("lists, overwrites and deletes playlists", async () => {

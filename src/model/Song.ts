@@ -1,4 +1,4 @@
-export type SongOrigin = "file" | "url";
+export type SongOrigin = "file" | "url" | "youtube" | "spotify";
 
 /**
  * One song. `source` is a playable address: a blob URL for a file or a web URL.

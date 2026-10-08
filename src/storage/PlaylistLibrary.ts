@@ -16,7 +16,7 @@ export class PlaylistLibrary {
     const songs: SavedSong[] = playlist.list().map((song) => ({
       title: song.title,
       origin: song.origin,
-      url: song.origin === "url" ? song.source : null,
+      url: song.origin === "file" ? null : song.source,
       file: song.file,
     }));
     await this.storage.save({ name: cleanName, savedAt: Date.now(), songs });

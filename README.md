@@ -10,6 +10,7 @@ A web music player built with TypeScript and Vite. The playlist is a hand-writte
 - Vinyl disc that spins while a song is playing (it stops when paused). Every song gets its own label colour.
 - Save playlists with a name, load them later, delete them. Local audio files are saved too.
 - Songs from any computer: pick audio files from the device you are using, or add any audio URL from the web.
+- YouTube and Spotify links. YouTube plays with its official embedded player (the vinyl spins and the list advances by itself). Spotify uses its embedded player: it plays 30-second previews unless you are logged in to Spotify, and it cannot tell the page when a song ends, so the vinyl stays still and you press Next yourself.
 
 ## Design (OOP)
 | Class | Responsibility |
@@ -21,6 +22,10 @@ A web music player built with TypeScript and Vite. The playlist is a hand-writte
 | `PlaylistStorage` | Interface: where playlists are kept (save, list, load, delete). |
 | `BrowserPlaylistStorage` | Implements it with IndexedDB, in the browser. |
 | `PlaylistLibrary` | Saves the current playlist and rebuilds saved ones. Does not know where they live. |
+| `MediaLink` | Reads a pasted link and says what it is (audio, YouTube, Spotify). |
+| `PlaybackEngine` | Interface for something that can play one kind of song. |
+| `AudioEngine`, `YouTubeEngine`, `SpotifyEngine` | One implementation for each kind. |
+| `PlaybackRouter` | Picks the engine for each song and keeps only one playing. |
 | `PlayerView` | Connects the page with the `Playlist`. No list logic. |
 
 ## The reordering bug this design avoids
@@ -42,4 +47,6 @@ Import the GitHub repository in Vercel. Framework preset: **Vite**. Build comman
 ## Notes
 - Files chosen from a computer are never uploaded to a server. Until a playlist is saved they disappear on reload.
 - Saved playlists live in this browser (IndexedDB), so they are not visible from another computer or browser. Because the app depends only on the `PlaylistStorage` interface, a server-based storage (accounts and a database) can be added later without changing the rest.
-- Songs added by URL need a server that allows the browser to play them (most direct `.mp3` links do).
+- Songs added by direct audio URL need a server that allows the browser to play them (most `.mp3` links do).
+- The app does not download audio from YouTube or Spotify (that is against their terms). It only shows their official players.
+- Some YouTube videos block embedding; the app shows a message in that case.

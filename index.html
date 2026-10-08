@@ -17,6 +17,8 @@
           <div class="player-info">
             <p id="now-playing" class="now-playing">Nothing playing</p>
             <audio id="audio" controls></audio>
+            <div id="youtube-box" class="media-box" hidden></div>
+            <div id="spotify-box" class="media-box" hidden></div>
           </div>
         </div>
         <div class="controls">
@@ -44,7 +46,7 @@
         </div>
         <form id="url-form" class="row">
           <label for="url">From the web</label>
-          <input id="url" type="url" placeholder="https://example.com/song.mp3" required />
+          <input id="url" type="url" placeholder="Audio link, YouTube or Spotify link" required />
           <input id="title" type="text" placeholder="Title (optional)" />
           <button type="submit">Add</button>
         </form>

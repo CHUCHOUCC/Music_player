@@ -1,7 +1,7 @@
 /** A song as it is stored: files keep their data (`file`), web songs keep their address (`url`). */
 export interface SavedSong {
   title: string;
-  origin: "file" | "url";
+  origin: "file" | "url" | "youtube" | "spotify";
   url: string | null;
   file: Blob | null;
 }

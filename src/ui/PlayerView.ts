@@ -1,12 +1,18 @@
 import { Playlist } from "../model/Playlist";
 import { Song } from "../model/Song";
+import { AudioEngine } from "../media/AudioEngine";
+import { MediaLink } from "../media/MediaLink";
+import { PlaybackRouter } from "../media/PlaybackRouter";
+import { SpotifyEngine } from "../media/SpotifyEngine";
+import { resolveTitle } from "../media/TitleResolver";
+import { YouTubeEngine } from "../media/YouTubeEngine";
 import type { PlaylistLibrary } from "../storage/PlaylistLibrary";
 
 type Where = "start" | "end" | "position";
 
 /** Connects the page (DOM) with the Playlist. It holds no list logic of its own. */
 export class PlayerView {
-  private readonly audio = this.find<HTMLAudioElement>("audio");
+  private readonly router = this.createRouter();
   private readonly list = this.find<HTMLOListElement>("list");
   private draggedId: string | null = null;
   private playing = false;
@@ -28,6 +34,20 @@ export class PlayerView {
     return element as T;
   }
 
+  private createRouter(): PlaybackRouter {
+    const events = {
+      ended: () => this.playSong(this.playlist.next()),
+      // The vinyl spins only while the sound is really playing.
+      playingChanged: (playing: boolean) => this.setPlaying(playing),
+      failed: (message: string) => this.showMessage(message),
+    };
+    return new PlaybackRouter({
+      audio: new AudioEngine(this.find<HTMLAudioElement>("audio"), events),
+      youtube: new YouTubeEngine(this.find("youtube-box"), events),
+      spotify: new SpotifyEngine(this.find("spotify-box"), events),
+    });
+  }
+
   private bindControls(): void {
     this.find("next").addEventListener("click", () => this.playSong(this.playlist.next()));
     this.find("previous").addEventListener("click", () => this.playSong(this.playlist.previous()));
@@ -38,13 +58,6 @@ export class PlayerView {
       this.playlist.clear();
       this.stopAudio();
       this.render();
-    });
-    this.audio.addEventListener("ended", () => this.playSong(this.playlist.next()));
-    // The vinyl spins only while the sound is really playing.
-    this.audio.addEventListener("play", () => this.setPlaying(true));
-    this.audio.addEventListener("pause", () => this.setPlaying(false));
-    this.audio.addEventListener("error", () => {
-      if (this.audio.getAttribute("src")) this.showMessage("This song could not be played.");
     });
   }
 
@@ -66,17 +79,38 @@ export class PlayerView {
 
     this.find<HTMLFormElement>("url-form").addEventListener("submit", (event) => {
       event.preventDefault();
-      const url = this.find<HTMLInputElement>("url");
-      const title = this.find<HTMLInputElement>("title");
-      if (!/^https?:\/\//i.test(url.value)) {
-        this.showMessage("The address must start with http:// or https://");
-        return;
-      }
-      const name = title.value.trim() || decodeURIComponent(url.value.split("/").pop() ?? url.value);
-      this.addSong(new Song(crypto.randomUUID(), name, url.value, "url"));
-      url.value = "";
-      title.value = "";
+      void this.addFromLink();
     });
+  }
+
+  private async addFromLink(): Promise<void> {
+    const url = this.find<HTMLInputElement>("url");
+    const title = this.find<HTMLInputElement>("title");
+    const link = MediaLink.parse(url.value);
+    if (link === null) {
+      this.showMessage("The address must be a link starting with http:// or https://");
+      return;
+    }
+    if (link.kind !== "audio" && link.id === null) {
+      this.showMessage(
+        link.kind === "youtube"
+          ? "That YouTube link has no video."
+          : "That Spotify link must point to a track or an episode.",
+      );
+      return;
+    }
+    const address = url.value.trim();
+    const name =
+      title.value.trim() ||
+      (await resolveTitle(link.kind, address)) ||
+      (link.kind === "audio"
+        ? decodeURIComponent(address.split("/").pop() ?? address)
+        : link.kind === "youtube"
+          ? `YouTube video ${link.id}`
+          : "Spotify song");
+    this.addSong(new Song(crypto.randomUUID(), name, address, link.kind === "audio" ? "url" : link.kind));
+    url.value = "";
+    title.value = "";
   }
 
   private addSong(song: Song): void {
@@ -104,15 +138,12 @@ export class PlayerView {
       return;
     }
     this.showMessage("");
-    this.audio.src = song.source;
-    void this.audio.play().catch(() => this.showMessage("The browser blocked or could not play this song."));
+    this.router.play(song);
     this.render();
   }
 
   private stopAudio(): void {
-    this.audio.pause();
-    this.audio.removeAttribute("src");
-    this.audio.load();
+    this.router.stop();
   }
 
   private showMessage(text: string, ok = false): void {
@@ -242,7 +273,7 @@ export class PlayerView {
 
     const origin = document.createElement("span");
     origin.className = "origin";
-    origin.textContent = song.origin === "file" ? "this computer" : "web";
+    origin.textContent = { file: "this computer", url: "web", youtube: "YouTube", spotify: "Spotify" }[song.origin];
 
     const remove = document.createElement("button");
     remove.type = "button";

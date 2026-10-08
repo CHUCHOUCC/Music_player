@@ -81,3 +81,6 @@ button:focus-visible, input:focus-visible, select:focus-visible, .item:focus-vis
   .vinyl.spinning, .item.playing .mini-disc { animation: none; }
 }
 @media (max-width: 480px) { .vinyl { width: 96px; height: 96px; } .vinyl-label { font-size: 0.8rem; } }
+
+.media-box { margin-top: 8px; border-radius: 12px; overflow: hidden; }
+.media-box iframe { border: 0; display: block; }
