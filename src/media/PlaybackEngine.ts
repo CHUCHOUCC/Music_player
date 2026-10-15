@@ -11,4 +11,7 @@ export interface PlaybackEvents {
 export interface PlaybackEngine {
   play(song: Song): void;
   stop(): void;
+  /** Optional: an engine that cannot be paused from the page (Spotify's embed) leaves these out. */
+  pause?(): void;
+  resume?(): void;
 }

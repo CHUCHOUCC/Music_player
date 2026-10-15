@@ -5,6 +5,8 @@ import type { PlaybackEngine, PlaybackEvents } from "./PlaybackEngine";
 interface YouTubePlayer {
   loadVideoById(id: string): void;
   stopVideo(): void;
+  pauseVideo(): void;
+  playVideo(): void;
 }
 
 interface YouTubeApi {
@@ -67,6 +69,14 @@ export class YouTubeEngine implements PlaybackEngine {
       },
       () => this.events.failed("The YouTube player could not be loaded."),
     );
+  }
+
+  pause(): void {
+    this.player?.pauseVideo();
+  }
+
+  resume(): void {
+    this.player?.playVideo();
   }
 
   stop(): void {
