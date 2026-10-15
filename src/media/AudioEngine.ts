@@ -24,6 +24,14 @@ export class AudioEngine implements PlaybackEngine {
     this.audio.play().catch(() => this.events.failed("The browser blocked or could not play this song."));
   }
 
+  pause(): void {
+    this.audio.pause();
+  }
+
+  resume(): void {
+    this.audio.play().catch(() => this.events.failed("The browser blocked or could not play this song."));
+  }
+
   stop(): void {
     this.audio.pause();
     this.audio.removeAttribute("src");

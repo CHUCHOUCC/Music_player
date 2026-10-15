@@ -6,72 +6,161 @@
     <title>Music Player</title>
   </head>
   <body>
-    <main class="app">
-      <h1>Music Player</h1>
+    <div class="shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 17V6l10-2v11"/><circle cx="7" cy="17" r="3"/><circle cx="17" cy="15" r="3"/></svg>
+          </span>
+          <span class="brand-name">Music Player</span>
+        </div>
+        <nav class="nav" aria-label="Sections">
+          <button type="button" class="nav-item active" data-nav="home">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>
+            <span>Home</span>
+          </button>
+          <button type="button" class="nav-item" data-nav="add">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>
+            <span>Add songs</span>
+          </button>
+          <button type="button" class="nav-item" data-nav="mixes">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+            <span>My playlists</span>
+          </button>
+        </nav>
+        <p class="sidebar-note">Playlists are saved in this browser only, including the audio files you added from this computer.</p>
+      </aside>
 
-      <section class="panel" aria-label="Now playing">
-        <div class="player-top">
+      <main class="main">
+        <header class="topbar">
+          <h1>Music Player</h1>
+          <label class="search">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+            <input id="search" type="search" placeholder="Search in your playlist" aria-label="Search in your playlist" autocomplete="off" />
+          </label>
+        </header>
+
+        <section class="hero" aria-label="Now playing">
           <div id="vinyl" class="vinyl" aria-hidden="true">
             <div class="vinyl-label"><span id="vinyl-initial">&#9835;</span></div>
           </div>
-          <div class="player-info">
-            <p id="now-playing" class="now-playing">Nothing playing</p>
-            <audio id="audio" controls></audio>
-            <div id="youtube-box" class="media-box" hidden></div>
-            <div id="spotify-box" class="media-box" hidden></div>
+          <div class="hero-text">
+            <p class="kicker">Now playing</p>
+            <p id="now-playing" class="hero-title">Nothing playing</p>
+            <p id="hero-meta" class="hero-meta">0 songs</p>
           </div>
-        </div>
-        <div class="controls">
-          <button id="previous" type="button">&#9198; Previous</button>
-          <button id="next" type="button">Next &#9197;</button>
-          <label class="inline"><input id="repeat" type="checkbox" /> Repeat list</label>
-        </div>
+          <audio id="audio"></audio>
+        </section>
+        <div id="youtube-box" class="media-box" hidden></div>
+        <div id="spotify-box" class="media-box" hidden></div>
         <p id="message" class="message" role="status"></p>
-      </section>
 
-      <section class="panel" aria-label="Add songs">
-        <h2>Add songs</h2>
-        <div class="row">
-          <label for="where">Where</label>
-          <select id="where">
-            <option value="end">At the end</option>
-            <option value="start">At the start</option>
-            <option value="position">At position</option>
-          </select>
-          <input id="position" type="number" min="1" value="1" disabled aria-label="Position" />
-        </div>
-        <div class="row">
-          <label for="file">From this computer</label>
-          <input id="file" type="file" accept="audio/*" multiple />
-        </div>
-        <form id="url-form" class="row">
-          <label for="url">From the web</label>
-          <input id="url" type="url" placeholder="Audio link, YouTube or Spotify link" required />
-          <input id="title" type="text" placeholder="Title (optional)" />
-          <button type="submit">Add</button>
-        </form>
-      </section>
+        <section id="songs" class="tabs-card" aria-label="Songs">
+          <div class="tabs" role="tablist">
+            <button type="button" id="tab-playlist" class="tab active" role="tab" aria-selected="true" aria-controls="panel-playlist" data-tab="playlist">Playlist <span id="count" class="count"></span></button>
+            <button type="button" id="tab-add" class="tab" role="tab" aria-selected="false" aria-controls="panel-add" data-tab="add">Add songs</button>
+            <button id="clear" type="button" class="danger">Clear</button>
+          </div>
 
-      <section class="panel" aria-label="Playlist">
-        <div class="list-header">
-          <h2>Playlist <span id="count" class="count"></span></h2>
-          <button id="clear" type="button" class="danger">Clear</button>
+          <div id="panel-playlist" role="tabpanel" aria-labelledby="tab-playlist">
+            <p class="hint">Click a song to play it. Drag songs to reorder them.</p>
+            <div class="list-head" aria-hidden="true"><span>#</span><span></span><span>Title</span><span>Source</span><span></span></div>
+            <ol id="list" class="list"></ol>
+            <p id="empty" class="empty">The playlist is empty.</p>
+          </div>
+
+          <div id="panel-add" role="tabpanel" aria-labelledby="tab-add" hidden>
+            <div class="row">
+              <label for="where">Where</label>
+              <select id="where">
+                <option value="end">At the end</option>
+                <option value="start">At the start</option>
+                <option value="position">At position</option>
+              </select>
+              <input id="position" type="number" min="1" value="1" disabled aria-label="Position" />
+            </div>
+            <div class="row">
+              <label for="file">From this computer</label>
+              <input id="file" type="file" accept="audio/*" multiple />
+            </div>
+            <form id="url-form" class="row">
+              <label for="url">From the web</label>
+              <input id="url" type="url" placeholder="Audio link, YouTube or Spotify link" required />
+              <input id="title" type="text" placeholder="Title (optional)" />
+              <button type="submit">Add</button>
+            </form>
+          </div>
+        </section>
+
+        <section id="mixes" class="mixes" aria-label="Saved playlists">
+          <div class="section-head">
+            <h2>Your playlists</h2>
+            <form id="save-form" class="row">
+              <input id="playlist-name" type="text" placeholder="Playlist name" maxlength="60" required />
+              <button type="submit">Save current playlist</button>
+            </form>
+          </div>
+          <ul id="saved-list" class="mix-grid"></ul>
+          <p id="saved-empty" class="empty">No saved playlists yet.</p>
+        </section>
+      </main>
+
+      <aside class="rail">
+        <section class="card" aria-label="Up next">
+          <h2>Up next</h2>
+          <ol id="up-next" class="up-next"></ol>
+          <p id="up-next-empty" class="empty">Nothing is waiting in the playlist.</p>
+        </section>
+        <section class="card" aria-label="Sources">
+          <h2>Sources</h2>
+          <ul class="sources">
+            <li class="source file"><span>This computer</span><strong id="source-file">0</strong></li>
+            <li class="source url"><span>Web links</span><strong id="source-url">0</strong></li>
+            <li class="source youtube"><span>YouTube</span><strong id="source-youtube">0</strong></li>
+            <li class="source spotify"><span>Spotify</span><strong id="source-spotify">0</strong></li>
+          </ul>
+        </section>
+      </aside>
+    </div>
+
+    <footer id="player-bar" class="bar" aria-label="Player controls">
+      <div class="bar-track">
+        <span id="bar-disc" class="mini-disc" aria-hidden="true"></span>
+        <div class="bar-text">
+          <p id="bar-title" class="bar-title">Nothing playing</p>
+          <p id="bar-origin" class="bar-origin"></p>
         </div>
-        <p class="hint">Click a song to play it. Drag songs to reorder them.</p>
-        <ol id="list" class="list"></ol>
-        <p id="empty" class="empty">The playlist is empty.</p>
-      </section>
-      <section class="panel" aria-label="Saved playlists">
-        <h2>Saved playlists</h2>
-        <form id="save-form" class="row">
-          <input id="playlist-name" type="text" placeholder="Playlist name" maxlength="60" required />
-          <button type="submit">Save current playlist</button>
-        </form>
-        <ul id="saved-list" class="saved-list"></ul>
-        <p id="saved-empty" class="empty">No saved playlists yet.</p>
-        <p class="hint">Playlists are saved in this browser only, including the audio files you added from this computer.</p>
-      </section>
-    </main>
+      </div>
+
+      <div class="bar-center">
+        <div class="bar-buttons">
+          <label class="icon-toggle" title="Repeat list">
+            <input id="repeat" type="checkbox" aria-label="Repeat list" />
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 2l4 4-4 4"/><path d="M3 11V9a3 3 0 0 1 3-3h15"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a3 3 0 0 1-3 3H3"/></svg>
+          </label>
+          <button id="previous" type="button" class="icon-btn" aria-label="Previous">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>
+          </button>
+          <button id="toggle" type="button" class="play-btn" aria-label="Play">
+            <svg class="icon-play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+            <svg class="icon-pause" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg>
+          </button>
+          <button id="next" type="button" class="icon-btn" aria-label="Next">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16 5h2v14h-2zM4 5l11 7L4 19z"/></svg>
+          </button>
+        </div>
+        <div class="bar-progress">
+          <span id="time-now" class="time">0:00</span>
+          <input id="progress" type="range" min="0" max="1000" value="0" disabled aria-label="Seek" />
+          <span id="time-total" class="time">--:--</span>
+        </div>
+      </div>
+
+      <div class="bar-volume">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5L6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/></svg>
+        <input id="volume" type="range" min="0" max="100" value="100" disabled aria-label="Volume" />
+      </div>
+    </footer>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

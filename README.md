@@ -3,6 +3,9 @@
 A web music player built with TypeScript and Vite. The playlist is a hand-written **doubly linked list**.
 
 ## Features
+- Dashboard layout: side menu, hero with the vinyl, playlist table with tabs (Playlist / Add songs), saved playlists as cards, an "Up next" list and a counter per source.
+- Bottom player bar: play/pause, previous, next, repeat, progress (click to seek) and volume. Progress and volume work for audio files and links; YouTube can be paused from the bar, Spotify's embed cannot (use its own player).
+- Search box that filters the playlist by title (dragging is off while a search is active).
 - Add a song at the start, at the end or at any position.
 - Remove a song.
 - Next and previous song. Optional "repeat list".
@@ -25,7 +28,8 @@ A web music player built with TypeScript and Vite. The playlist is a hand-writte
 | `MediaLink` | Reads a pasted link and says what it is (audio, YouTube, Spotify). |
 | `PlaybackEngine` | Interface for something that can play one kind of song. |
 | `AudioEngine`, `YouTubeEngine`, `SpotifyEngine` | One implementation for each kind. |
-| `PlaybackRouter` | Picks the engine for each song and keeps only one playing. |
+| `PlaybackRouter` | Picks the engine for each song, keeps only one playing, and pauses/resumes the active one. |
+| `TransportBar` | Draws the bottom bar (current song, play/pause, progress, volume). Reads the `<audio>` element; knows nothing about the playlist. |
 | `PlayerView` | Connects the page with the `Playlist`. No list logic. |
 
 ## The reordering bug this design avoids

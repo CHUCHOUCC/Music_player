@@ -1,5 +1,6 @@
 import { Playlist } from "../model/Playlist";
 import { Song } from "../model/Song";
+import type { SongOrigin } from "../model/Song";
 import { AudioEngine } from "../media/AudioEngine";
 import { MediaLink } from "../media/MediaLink";
 import { PlaybackRouter } from "../media/PlaybackRouter";
@@ -7,21 +8,31 @@ import { SpotifyEngine } from "../media/SpotifyEngine";
 import { resolveTitle } from "../media/TitleResolver";
 import { YouTubeEngine } from "../media/YouTubeEngine";
 import type { PlaylistLibrary } from "../storage/PlaylistLibrary";
+import { TransportBar } from "./TransportBar";
 
 type Where = "start" | "end" | "position";
+type Tab = "playlist" | "add";
+type Section = Tab | "home" | "mixes";
+
+const ORIGIN_LABELS: Record<SongOrigin, string> = { file: "this computer", url: "web", youtube: "YouTube", spotify: "Spotify" };
+const UP_NEXT_SIZE = 5;
 
 /** Connects the page (DOM) with the Playlist. It holds no list logic of its own. */
 export class PlayerView {
   private readonly router = this.createRouter();
   private readonly list = this.find<HTMLOListElement>("list");
+  private readonly bar = new TransportBar(this.find("player-bar"), this.find<HTMLAudioElement>("audio"));
   private draggedId: string | null = null;
   private playing = false;
+  private filter = "";
 
   constructor(
     private readonly playlist: Playlist,
     private readonly library: PlaylistLibrary,
   ) {
     this.bindControls();
+    this.bindNavigation();
+    this.bindSearch();
     this.bindAddForms();
     this.bindSaveForm();
     this.render();
@@ -51,12 +62,49 @@ export class PlayerView {
   private bindControls(): void {
     this.find("next").addEventListener("click", () => this.playSong(this.playlist.next()));
     this.find("previous").addEventListener("click", () => this.playSong(this.playlist.previous()));
+    this.find("toggle").addEventListener("click", () => this.togglePause());
     this.find<HTMLInputElement>("repeat").addEventListener("change", (event) => {
       this.playlist.repeat = (event.target as HTMLInputElement).checked;
     });
     this.find("clear").addEventListener("click", () => {
       this.playlist.clear();
       this.stopAudio();
+      this.render();
+    });
+  }
+
+  private bindNavigation(): void {
+    for (const tab of document.querySelectorAll<HTMLElement>("[data-tab]")) {
+      tab.addEventListener("click", () => this.showSection(tab.dataset.tab as Tab));
+    }
+    for (const item of document.querySelectorAll<HTMLElement>("[data-nav]")) {
+      item.addEventListener("click", () => this.showSection(item.dataset.nav as Section, true));
+    }
+  }
+
+  /** Switches the tab (playlist / add songs) and marks the matching entry of the side menu. */
+  private showSection(section: Section, scroll = false): void {
+    const tab: Tab = section === "add" ? "add" : "playlist";
+    if (section !== "mixes") {
+      for (const name of ["playlist", "add"] as const) {
+        this.find(`panel-${name}`).hidden = name !== tab;
+        const button = this.find(`tab-${name}`);
+        button.classList.toggle("active", name === tab);
+        button.setAttribute("aria-selected", String(name === tab));
+      }
+    }
+    for (const item of document.querySelectorAll<HTMLElement>("[data-nav]")) {
+      item.classList.toggle("active", item.dataset.nav === (section === "playlist" ? "home" : section));
+    }
+    if (!scroll) return;
+    const target = section === "mixes" ? this.find("mixes") : section === "add" ? this.find("songs") : null;
+    if (target === null) window.scrollTo({ top: 0, behavior: "smooth" });
+    else target.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  private bindSearch(): void {
+    this.find<HTMLInputElement>("search").addEventListener("input", (event) => {
+      this.filter = (event.target as HTMLInputElement).value.trim().toLowerCase();
       this.render();
     });
   }
@@ -146,6 +194,15 @@ export class PlayerView {
     this.router.stop();
   }
 
+  /** The big play/pause button: starts the list when idle, otherwise pauses or resumes. */
+  private togglePause(): void {
+    const current = this.playlist.currentSong;
+    if (current === null) this.playSong(this.playlist.next());
+    else if (this.playing) this.router.pause();
+    else if (this.router.hasActive) this.router.resume();
+    else this.playSong(current); // the list ended: play the same song again
+  }
+
   private showMessage(text: string, ok = false): void {
     const message = this.find("message");
     message.textContent = text;
@@ -180,7 +237,12 @@ export class PlayerView {
       container.replaceChildren(
         ...saved.map((item) => {
           const row = document.createElement("li");
-          row.className = "saved-item";
+          row.className = "mix-card";
+
+          const cover = document.createElement("div");
+          cover.className = "mix-cover";
+          cover.style.setProperty("--label", this.colorFor(item.name));
+          cover.textContent = item.name.charAt(0).toUpperCase();
 
           const name = document.createElement("span");
           name.className = "name";
@@ -189,6 +251,9 @@ export class PlayerView {
           const meta = document.createElement("span");
           meta.className = "meta";
           meta.textContent = `${item.songs.length} songs`;
+
+          const actions = document.createElement("div");
+          actions.className = "mix-actions";
 
           const load = document.createElement("button");
           load.type = "button";
@@ -203,7 +268,8 @@ export class PlayerView {
             this.library.delete(item.name).then(() => this.refreshSaved(), () => this.showMessage("Could not delete it."));
           });
 
-          row.append(name, meta, load, remove);
+          actions.append(load, remove);
+          row.append(cover, name, meta, actions);
           return row;
         }),
       );
@@ -238,24 +304,78 @@ export class PlayerView {
   private updateVinyl(current: Song | null): void {
     const vinyl = this.find("vinyl");
     vinyl.classList.toggle("spinning", this.playing && current !== null);
-    vinyl.style.setProperty("--label", current === null ? "#6c8cff" : this.colorFor(current.title));
+    vinyl.style.setProperty("--label", current === null ? "#ff6a3d" : this.colorFor(current.title));
     this.find("vinyl-initial").textContent = current === null ? "\u266B" : current.title.charAt(0).toUpperCase();
   }
 
   private render(): void {
     const songs = this.playlist.list();
     const current = this.playlist.currentSong;
+    const rows = songs.map((song, index) => ({ song, index })).filter(({ song }) => song.title.toLowerCase().includes(this.filter));
     this.find("count").textContent = songs.length > 0 ? `(${songs.length})` : "";
-    this.find("empty").hidden = songs.length > 0;
-    this.find("now-playing").textContent = current === null ? "Nothing playing" : `Now playing: ${current.title}`;
+    this.find("empty").hidden = rows.length > 0;
+    this.find("empty").textContent = songs.length === 0 ? "The playlist is empty." : "No songs match your search.";
+    this.find("now-playing").textContent = current === null ? "Nothing playing" : current.title;
+    this.find("hero-meta").textContent =
+      `${songs.length} ${songs.length === 1 ? "song" : "songs"}` + (current === null ? "" : ` \u00B7 ${ORIGIN_LABELS[current.origin]}`);
     this.updateVinyl(current);
-    this.list.replaceChildren(...songs.map((song, index) => this.createItem(song, index, song === current)));
+    this.updateBar(current);
+    this.list.replaceChildren(...rows.map(({ song, index }) => this.createItem(song, index, song === current)));
+    this.renderUpNext(songs);
+    this.renderSources(songs);
+  }
+
+  private updateBar(current: Song | null): void {
+    this.bar.show(current === null ? null : { title: current.title, origin: ORIGIN_LABELS[current.origin], color: this.colorFor(current.title) });
+    this.bar.setPlaying(this.playing && current !== null);
+    this.bar.setPausable(current === null || this.router.canPause(current));
+    this.bar.setUsesAudioElement(current !== null && PlaybackRouter.kindOf(current) === "audio");
+  }
+
+  /** The songs that come after the current one (or the first ones when nothing is playing). */
+  private renderUpNext(songs: Song[]): void {
+    const start = this.playlist.currentIndex + 1;
+    const upcoming = songs.slice(start, start + UP_NEXT_SIZE);
+    this.find("up-next-empty").hidden = upcoming.length > 0;
+    this.find("up-next").replaceChildren(...upcoming.map((song, offset) => this.createUpNextItem(song, start + offset)));
+  }
+
+  private createUpNextItem(song: Song, index: number): HTMLLIElement {
+    const item = document.createElement("li");
+    item.className = "up-item";
+
+    const number = document.createElement("span");
+    number.className = "number";
+    number.textContent = String(index + 1);
+
+    const disc = document.createElement("span");
+    disc.className = "mini-disc";
+    disc.style.setProperty("--label", this.colorFor(song.title));
+
+    const text = document.createElement("span");
+    const title = document.createElement("span");
+    title.className = "title";
+    title.textContent = song.title;
+    const origin = document.createElement("span");
+    origin.className = "origin";
+    origin.textContent = ORIGIN_LABELS[song.origin];
+    text.append(title, origin);
+
+    item.append(number, disc, text);
+    item.addEventListener("click", () => this.playSong(this.playlist.play(song.id)));
+    return item;
+  }
+
+  private renderSources(songs: Song[]): void {
+    for (const origin of Object.keys(ORIGIN_LABELS) as SongOrigin[]) {
+      this.find(`source-${origin}`).textContent = String(songs.filter((song) => song.origin === origin).length);
+    }
   }
 
   private createItem(song: Song, index: number, isCurrent: boolean): HTMLLIElement {
     const item = document.createElement("li");
     item.className = "item" + (isCurrent ? " current" : "") + (isCurrent && this.playing ? " playing" : "");
-    item.draggable = true;
+    item.draggable = this.filter === ""; // with a search active the shown rows are not the whole list
     item.tabIndex = 0;
     item.dataset.id = song.id;
 
@@ -273,12 +393,12 @@ export class PlayerView {
 
     const origin = document.createElement("span");
     origin.className = "origin";
-    origin.textContent = { file: "this computer", url: "web", youtube: "YouTube", spotify: "Spotify" }[song.origin];
+    origin.textContent = ORIGIN_LABELS[song.origin];
 
     const remove = document.createElement("button");
     remove.type = "button";
     remove.className = "remove";
-    remove.textContent = "Remove";
+    remove.textContent = "\u2715";
     remove.setAttribute("aria-label", `Remove ${song.title}`);
     remove.addEventListener("click", (event) => {
       event.stopPropagation();
